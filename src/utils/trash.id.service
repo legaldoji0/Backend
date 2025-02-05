@@ -1,0 +1,102 @@
+import { createHash } from 'crypto';
+import { AdminDbService } from '../database/admin.db.service';
+import { Injectable, NotAcceptableException } from '@nestjs/common';
+import { Roles } from 'src/app.types';
+
+@Injectable()
+export class IdService {
+  constructor(private readonly adminDbService: AdminDbService) {}
+
+  whoIs(id: string): Roles {
+    if (/^LDA\d{5}$/.test(id)) {
+      return 'ADVOCATE';
+    } else if (/^LDC\d{10}$/.test(id)) {
+      return 'CLIENT';
+    } else {
+      throw new NotAcceptableException('Invalid ID');
+    }
+  }
+
+  /**
+   * @name validId
+   * @description
+   * Checks if the given ID is valid or not.
+   */
+  validId(id: string, role: Roles): boolean {
+    switch (role) {
+      case 'ADVOCATE':
+        return /^LDA\d{5}$/.test(id);
+
+      case 'CLIENT':
+        return /^LDC\d{10}$/.test(id);
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * @name useId
+   * @description
+   * Checks if the given ID is valid or not and if it is already used or not.
+   * If the ID is valid and not used, it updates the last used ID in the database.
+   */
+  async createId(role: Roles): Promise<string> {
+    const lastIds = await this.adminDbService.getIds();
+
+    if (lastIds.lastAdvocateId >= 15) {
+      throw new Error();
+    }
+
+    switch (role) {
+      case 'ADVOCATE':
+        // LDA00001
+        let newAdvocateId = 'LDA';
+
+        // check length digits of last used ID after adding 1
+        // add remaining leading zeros
+        // then add 1
+        newAdvocateId += '0'.repeat(
+          5 - (lastIds.lastAdvocateId + 1).toString().length,
+        );
+
+        newAdvocateId += lastIds.lastAdvocateId + 1;
+
+        this.adminDbService.updateIds({
+          lastAdvocateId: lastIds.lastAdvocateId + 1,
+        });
+
+        return newAdvocateId;
+
+      case 'CLIENT':
+        let newClientId = 'LDC';
+
+        // add leading zeros
+        newClientId += '0'.repeat(
+          10 - (lastIds.lastClientId + 1).toString().length,
+        );
+
+        newClientId += lastIds.lastClientId + 1;
+
+        this.adminDbService.updateIds({
+          lastClientId: lastIds.lastClientId + 1,
+        });
+
+        return newClientId;
+
+      default:
+        throw new Error('Invalid ID type');
+    }
+  }
+
+  /**
+   * @name hashString
+   * @description
+   * Hashes the given string using SHA-256 algorithm. ( node.js crypto module )
+   */
+  hashString(str: string): string {
+    const hash = createHash('sha256');
+    hash.update(str);
+    return hash.digest('hex');
+  }
+}

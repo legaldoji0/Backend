@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketStatus {
+  OPEN
+  CLOSED
+  REFUNDED
+  UNDERREVIEW
+  UNPAID
+}
+
+enum ClientStatus {
+  VERIFIED
+  BANNED
+  NOTVERIFIED
+}
+
+enum AdvocateStatus {
+  INCOMPLETE
+  PENDING
+  VERIFIED
+  BANNED
+  NOTVERIFIED
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+}
+
+model PayoutRequest {
+  createdAt  DateTime     @default(now())
+  advocate   Advocates    @relation(fields: [advocateId], references: [id])
+  advocateId String       @id @unique
+  status     PayoutStatus
+}
+
+model VerficationTokens {
+  token     Int      @id @unique
+  createdAt DateTime @default(now())
+  type      String   @default("EMAIL")
+  userId    String   @unique
+}
+
+model Documents {
+  id       String  @id @unique @default(cuid())
+  ticket   Tickets @relation(fields: [ticketId], references: [id])
+  ticketId String
+  document String
+}
+
+model Meetings {
+  id        String   @id @unique @default(cuid())
+  createdAt DateTime @default(now())
+  ticket    Tickets  @relation(fields: [ticketId], references: [id])
+  ticketId  String   @unique
+}
+
+model Clients {
+  id        String       @id @unique @default(cuid())
+  createdAt DateTime     @default(now())
+  name      String
+  email     String       @unique
+  phone     String       @unique
+  language  String       @default("English")
+  dob       DateTime
+  status    ClientStatus
+  password  String
+  tickets   Tickets[]
+
+  // address
+  state   String
+  city    String
+  pincode Int
+  country String @default("India")
+}
+
+model Advocates {
+  id        String         @id @unique @default(cuid())
+  createdAt DateTime       @default(now())
+  name      String
+  email     String         @unique
+  phone     String         @unique
+  dob       DateTime
+  status    AdvocateStatus
+  password  String
+  tickets   Tickets[]
+
+  // profile
+  experience         Float          @default(0)
+  languages          String         @default("English")
+  court              String?
+  speciality         String?
+  designation        String?
+  rating             Float          @default(0)
+  price              Int            @default(0) // in rupees
+  unverifiedBallance Int            @default(0) // in rupees
+  verifiedBallance   Int            @default(0) // in rupees
+  PayoutRequest      PayoutRequest?
+  AvailabelDates     Json           @default("{}")
+
+  // address
+  state   String
+  city    String
+  pincode Int
+  country String @default("India")
+}
+
+model Tickets {
+  id                String       @id @unique @default(cuid())
+  createdAt         DateTime     @default(now())
+  client            Clients      @relation(fields: [clientId], references: [id])
+  clientId          String
+  advocate          Advocates    @relation(fields: [advocateId], references: [id])
+  advocateId        String
+  meeting           Meetings?
+  meetDate          DateTime
+  documents         Documents[]
+  status            TicketStatus
+  price             Int // in rupees
+  clientDescription String
+  clientMessage     String?
+  advocateMessage   String?
+  paymentId         String?
+}
+
+model Throttler {
+  id  Int      @id @unique @default(autoincrement())
+  key String
+  ttl DateTime
+}
+
+model Sessions {
+  sid    String @id @default(uuid())
+  sess   Json
+  expire String
+}
